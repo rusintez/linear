@@ -23,7 +23,7 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/rusintez/linear-cli.git"
+    "url": "git+https://github.com/rusintez/linear.git"
   },
   "dependencies": {
     "@commander-js/extra-typings": "^14.0.0",

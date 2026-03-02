@@ -1,20 +1,16 @@
-# linear-cli
+# @rusintez/linear
 
 Simple CLI wrapper for Linear GraphQL API. Supports multiple workspaces. Markdown I/O by default.
 
 ## Install
 
 ```bash
-# No build needed - runs TypeScript directly via tsx
-cd linear-cli
-npm install
+npm install -g @rusintez/linear
+```
 
-# Run directly
-npx tsx src/index.ts --help
-
-# Or link globally
-npm link
-linear --help
+Or run directly with npx:
+```bash
+npx @rusintez/linear --help
 ```
 
 ## Setup
@@ -116,3 +112,7 @@ linear -w client projects      # Use 'client' workspace
 ## Config Location
 
 `~/.config/linear-cli/config.json`
+
+## License
+
+MIT
