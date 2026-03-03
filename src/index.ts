@@ -21,13 +21,18 @@ import {
 
 const program = new Command()
   .name("linear")
-  .description("CLI wrapper for Linear GraphQL API - supports multiple workspaces")
+  .description(
+    "CLI wrapper for Linear GraphQL API - supports multiple workspaces",
+  )
   .version("1.0.0")
-  .option("-w, --workspace <name>", "workspace to use (defaults to default workspace)")
+  .option(
+    "-w, --workspace <name>",
+    "workspace to use (defaults to default workspace)",
+  )
   .addOption(
     new Option("-f, --format <format>", "output format")
       .choices(["md", "json", "minimal"] as const)
-      .default("md" as const)
+      .default("md" as const),
   );
 
 // Helper to get API key from options or env
@@ -38,7 +43,9 @@ function getApiKey(workspace?: string): string {
 
   const ws = getWorkspace(workspace);
   if (!ws) {
-    console.error("No workspace configured. Run: linear config add <name> <api-key>");
+    console.error(
+      "No workspace configured. Run: linear config add <name> <api-key>",
+    );
     process.exit(1);
   }
   return ws.apiKey;
@@ -168,7 +175,30 @@ program
     const apiKey = getApiKey(workspace);
     try {
       const result = await graphql(apiKey, QUERIES.teams);
-      const data = (result.data as { teams: { nodes: unknown[] } })?.teams?.nodes;
+      const data = (result.data as { teams: { nodes: unknown[] } })?.teams
+        ?.nodes;
+      console.log(formatOutput(data, format as OutputFormat));
+    } catch (err) {
+      printError(err);
+      process.exit(1);
+    }
+  });
+
+// --- My Issues (assigned to me) ---
+program
+  .command("my")
+  .description("list issues assigned to me")
+  .option("-n, --limit <number>", "max issues to return", "50")
+  .action(async (opts, cmd) => {
+    const { workspace, format } = cmd.optsWithGlobals();
+    const apiKey = getApiKey(workspace);
+    try {
+      const result = await graphql(apiKey, QUERIES.myIssues, {
+        first: parseInt(opts.limit, 10),
+      });
+      const data = (
+        result.data as { viewer: { assignedIssues: { nodes: unknown[] } } }
+      )?.viewer?.assignedIssues?.nodes;
       console.log(formatOutput(data, format as OutputFormat));
     } catch (err) {
       printError(err);
@@ -181,20 +211,40 @@ program
   .command("issues")
   .description("list issues")
   .option("-t, --team <team>", "filter by team name, key, or ID")
+  .option("-a, --assignee <user>", "filter by assignee (use 'me' for self)")
   .option("-n, --limit <number>", "max issues to return", "50")
   .action(async (opts, cmd) => {
     const { workspace, format } = cmd.optsWithGlobals();
     const apiKey = getApiKey(workspace);
     try {
       let teamId: string | undefined;
+      let assigneeId: string | undefined;
+
       if (opts.team) {
         teamId = await resolveTeam(apiKey, opts.team);
       }
-      const query = teamId ? QUERIES.issuesByTeam : QUERIES.issuesAll;
-      const variables: Record<string, unknown> = { first: parseInt(opts.limit, 10) };
-      if (teamId) variables.teamId = teamId;
+      if (opts.assignee) {
+        assigneeId = await resolveUser(apiKey, opts.assignee);
+      }
+
+      const variables: Record<string, unknown> = {
+        first: parseInt(opts.limit, 10),
+      };
+      let query: string;
+
+      if (assigneeId) {
+        query = QUERIES.issuesByAssignee;
+        variables.assigneeId = assigneeId;
+      } else if (teamId) {
+        query = QUERIES.issuesByTeam;
+        variables.teamId = teamId;
+      } else {
+        query = QUERIES.issuesAll;
+      }
+
       const result = await graphql(apiKey, query, variables);
-      const data = (result.data as { issues: { nodes: unknown[] } })?.issues?.nodes;
+      const data = (result.data as { issues: { nodes: unknown[] } })?.issues
+        ?.nodes;
       console.log(formatOutput(data, format as OutputFormat));
     } catch (err) {
       printError(err);
@@ -234,7 +284,8 @@ program
         query,
         first: parseInt(opts.limit, 10),
       });
-      const data = (result.data as { issues: { nodes: unknown[] } })?.issues?.nodes;
+      const data = (result.data as { issues: { nodes: unknown[] } })?.issues
+        ?.nodes;
       console.log(formatOutput(data, format as OutputFormat));
     } catch (err) {
       printError(err);
@@ -250,8 +301,14 @@ program
   .requiredOption("--title <title>", "issue title")
   .option("-d, --description <desc>", "issue description (markdown)")
   .option("-s, --state <state>", "workflow state name or ID")
-  .option("-a, --assignee <user>", "assignee name, email, or ID (use 'me' for self)")
-  .option("-p, --priority <priority>", "priority (0=none, 1=urgent, 2=high, 3=medium, 4=low)")
+  .option(
+    "-a, --assignee <user>",
+    "assignee name, email, or ID (use 'me' for self)",
+  )
+  .option(
+    "-p, --priority <priority>",
+    "priority (0=none, 1=urgent, 2=high, 3=medium, 4=low)",
+  )
   .option("-l, --labels <labels>", "comma-separated label names or IDs")
   .option("-e, --estimate <points>", "estimate points")
   .action(async (opts, cmd) => {
@@ -266,16 +323,20 @@ program
         teamId,
         title: opts.title,
       };
-      
+
       if (opts.description) input.description = opts.description;
-      if (opts.state) input.stateId = await resolveState(apiKey, opts.state, teamId);
-      if (opts.assignee) input.assigneeId = await resolveUser(apiKey, opts.assignee);
+      if (opts.state)
+        input.stateId = await resolveState(apiKey, opts.state, teamId);
+      if (opts.assignee)
+        input.assigneeId = await resolveUser(apiKey, opts.assignee);
       if (opts.priority) input.priority = parseInt(opts.priority, 10);
-      if (opts.labels) input.labelIds = await resolveLabels(apiKey, opts.labels);
+      if (opts.labels)
+        input.labelIds = await resolveLabels(apiKey, opts.labels);
       if (opts.estimate) input.estimate = parseInt(opts.estimate, 10);
 
       const result = await graphql(apiKey, MUTATIONS.createIssue, { input });
-      const data = (result.data as { issueCreate: { issue: unknown } })?.issueCreate?.issue;
+      const data = (result.data as { issueCreate: { issue: unknown } })
+        ?.issueCreate?.issue;
       console.log(formatOutput(data, format as OutputFormat));
     } catch (err) {
       printError(err);
@@ -290,8 +351,14 @@ program
   .argument("<id>", "issue identifier (e.g., ABC-123)")
   .option("--title <title>", "new title")
   .option("-d, --description <desc>", "new description")
-  .option("-s, --state <state>", "new state name or ID (e.g., 'Done', 'In Progress')")
-  .option("-a, --assignee <user>", "new assignee name, email, or ID (use 'me' for self)")
+  .option(
+    "-s, --state <state>",
+    "new state name or ID (e.g., 'Done', 'In Progress')",
+  )
+  .option(
+    "-a, --assignee <user>",
+    "new assignee name, email, or ID (use 'me' for self)",
+  )
   .option("-p, --priority <priority>", "new priority")
   .option("-e, --estimate <points>", "new estimate")
   .action(async (id, opts, cmd) => {
@@ -303,7 +370,8 @@ program
       if (opts.title) input.title = opts.title;
       if (opts.description) input.description = opts.description;
       if (opts.state) input.stateId = await resolveState(apiKey, opts.state);
-      if (opts.assignee) input.assigneeId = await resolveUser(apiKey, opts.assignee);
+      if (opts.assignee)
+        input.assigneeId = await resolveUser(apiKey, opts.assignee);
       if (opts.priority) input.priority = parseInt(opts.priority, 10);
       if (opts.estimate) input.estimate = parseInt(opts.estimate, 10);
 
@@ -312,8 +380,12 @@ program
         process.exit(1);
       }
 
-      const result = await graphql(apiKey, MUTATIONS.updateIssue, { id, input });
-      const data = (result.data as { issueUpdate: { issue: unknown } })?.issueUpdate?.issue;
+      const result = await graphql(apiKey, MUTATIONS.updateIssue, {
+        id,
+        input,
+      });
+      const data = (result.data as { issueUpdate: { issue: unknown } })
+        ?.issueUpdate?.issue;
       console.log(formatOutput(data, format as OutputFormat));
     } catch (err) {
       printError(err);
@@ -331,8 +403,12 @@ program
     const { workspace, format } = cmd.optsWithGlobals();
     const apiKey = getApiKey(workspace);
     try {
-      const result = await graphql(apiKey, MUTATIONS.createComment, { issueId, body });
-      const data = (result.data as { commentCreate: { comment: unknown } })?.commentCreate?.comment;
+      const result = await graphql(apiKey, MUTATIONS.createComment, {
+        issueId,
+        body,
+      });
+      const data = (result.data as { commentCreate: { comment: unknown } })
+        ?.commentCreate?.comment;
       console.log(formatOutput(data, format as OutputFormat));
     } catch (err) {
       printError(err);
@@ -349,7 +425,8 @@ program
     const apiKey = getApiKey(workspace);
     try {
       const result = await graphql(apiKey, QUERIES.projects);
-      const data = (result.data as { projects: { nodes: unknown[] } })?.projects?.nodes;
+      const data = (result.data as { projects: { nodes: unknown[] } })?.projects
+        ?.nodes;
       console.log(formatOutput(data, format as OutputFormat));
     } catch (err) {
       printError(err);
@@ -371,8 +448,14 @@ program
       let projectId = idOrName;
       if (!idOrName.match(/^[0-9a-f-]{36}$/i)) {
         const listResult = await graphql(apiKey, QUERIES.projects);
-        const projects = (listResult.data as { projects: { nodes: Array<{ id: string; name: string }> } })?.projects?.nodes;
-        const found = projects?.find((p) => p.name.toLowerCase() === idOrName.toLowerCase());
+        const projects = (
+          listResult.data as {
+            projects: { nodes: Array<{ id: string; name: string }> };
+          }
+        )?.projects?.nodes;
+        const found = projects?.find(
+          (p) => p.name.toLowerCase() === idOrName.toLowerCase(),
+        );
         if (!found) {
           console.error(`Project "${idOrName}" not found`);
           process.exit(1);
@@ -382,7 +465,8 @@ program
 
       const query = opts.content ? QUERIES.projectWithContent : QUERIES.project;
       const result = await graphql(apiKey, query, { id: projectId });
-      const project = (result.data as { project: Record<string, unknown> })?.project;
+      const project = (result.data as { project: Record<string, unknown> })
+        ?.project;
 
       if (format === "json") {
         console.log(formatOutput(project, format as OutputFormat));
@@ -399,20 +483,28 @@ program
       }
       lines.push(`**State:** ${project.state}`);
       if (project.progress !== undefined) {
-        lines.push(`**Progress:** ${Math.round((project.progress as number) * 100)}%`);
+        lines.push(
+          `**Progress:** ${Math.round((project.progress as number) * 100)}%`,
+        );
       }
       if (project.startDate) lines.push(`**Start:** ${project.startDate}`);
       if (project.targetDate) lines.push(`**Target:** ${project.targetDate}`);
-      
+
       const lead = project.lead as { name?: string } | undefined;
       if (lead?.name) lines.push(`**Lead:** ${lead.name}`);
-      
-      const members = project.members as { nodes?: Array<{ name: string }> } | undefined;
+
+      const members = project.members as
+        | { nodes?: Array<{ name: string }> }
+        | undefined;
       if (members?.nodes?.length) {
-        lines.push(`**Members:** ${members.nodes.map((m) => m.name).join(", ")}`);
+        lines.push(
+          `**Members:** ${members.nodes.map((m) => m.name).join(", ")}`,
+        );
       }
-      
-      const teams = project.teams as { nodes?: Array<{ name: string }> } | undefined;
+
+      const teams = project.teams as
+        | { nodes?: Array<{ name: string }> }
+        | undefined;
       if (teams?.nodes?.length) {
         lines.push(`**Teams:** ${teams.nodes.map((t) => t.name).join(", ")}`);
       }
@@ -420,7 +512,9 @@ program
       if (project.url) lines.push(`**URL:** ${project.url}`);
 
       // External links
-      const links = project.externalLinks as { nodes?: Array<{ label: string; url: string }> } | undefined;
+      const links = project.externalLinks as
+        | { nodes?: Array<{ label: string; url: string }> }
+        | undefined;
       if (links?.nodes?.length) {
         lines.push("");
         lines.push("## Links");
@@ -431,13 +525,24 @@ program
       }
 
       // Milestones
-      const milestones = project.projectMilestones as { nodes?: Array<{ id: string; name: string; targetDate?: string; status?: string; progress?: number }> } | undefined;
+      const milestones = project.projectMilestones as
+        | {
+            nodes?: Array<{
+              id: string;
+              name: string;
+              targetDate?: string;
+              status?: string;
+              progress?: number;
+            }>;
+          }
+        | undefined;
       if (milestones?.nodes?.length) {
         lines.push("");
         lines.push("## Milestones");
         lines.push("");
         for (const m of milestones.nodes) {
-          const progress = m.progress !== undefined ? ` (${Math.round(m.progress)}%)` : "";
+          const progress =
+            m.progress !== undefined ? ` (${Math.round(m.progress)}%)` : "";
           const target = m.targetDate ? ` - ${m.targetDate}` : "";
           const status = m.status ? ` [${m.status}]` : "";
           lines.push(`- **${m.name}**${progress}${status}${target}`);
@@ -475,8 +580,14 @@ program
       let projectName = projectArg;
       if (!projectArg.match(/^[0-9a-f-]{36}$/i)) {
         const listResult = await graphql(apiKey, QUERIES.projects);
-        const projects = (listResult.data as { projects: { nodes: Array<{ id: string; name: string }> } })?.projects?.nodes;
-        const found = projects?.find((p) => p.name.toLowerCase() === projectArg.toLowerCase());
+        const projects = (
+          listResult.data as {
+            projects: { nodes: Array<{ id: string; name: string }> };
+          }
+        )?.projects?.nodes;
+        const found = projects?.find(
+          (p) => p.name.toLowerCase() === projectArg.toLowerCase(),
+        );
         if (!found) {
           console.error(`Project "${projectArg}" not found`);
           process.exit(1);
@@ -490,7 +601,8 @@ program
         nodes { id name description targetDate status progress }
       }}`;
       const result = await graphql(apiKey, query);
-      const data = (result.data as { projectMilestones: { nodes: unknown[] } })?.projectMilestones?.nodes;
+      const data = (result.data as { projectMilestones: { nodes: unknown[] } })
+        ?.projectMilestones?.nodes;
       console.log(formatOutput(data, format as OutputFormat));
     } catch (err) {
       printError(err);
@@ -508,7 +620,9 @@ program
     const apiKey = getApiKey(workspace);
     try {
       const result = await graphql(apiKey, QUERIES.milestone, { id });
-      const milestone = (result.data as { projectMilestone: Record<string, unknown> })?.projectMilestone;
+      const milestone = (
+        result.data as { projectMilestone: Record<string, unknown> }
+      )?.projectMilestone;
 
       if (format === "json") {
         console.log(formatOutput(milestone, format as OutputFormat));
@@ -523,16 +637,27 @@ program
         lines.push(String(milestone.description));
         lines.push("");
       }
-      
+
       const project = milestone.project as { name?: string } | undefined;
       if (project?.name) lines.push(`**Project:** ${project.name}`);
       if (milestone.status) lines.push(`**Status:** ${milestone.status}`);
       if (milestone.progress !== undefined) {
-        lines.push(`**Progress:** ${Math.round(milestone.progress as number)}%`);
+        lines.push(
+          `**Progress:** ${Math.round(milestone.progress as number)}%`,
+        );
       }
-      if (milestone.targetDate) lines.push(`**Target:** ${milestone.targetDate}`);
+      if (milestone.targetDate)
+        lines.push(`**Target:** ${milestone.targetDate}`);
 
-      const issues = milestone.issues as { nodes?: Array<{ identifier: string; title: string; state?: { name: string } }> } | undefined;
+      const issues = milestone.issues as
+        | {
+            nodes?: Array<{
+              identifier: string;
+              title: string;
+              state?: { name: string };
+            }>;
+          }
+        | undefined;
       if (issues?.nodes?.length) {
         lines.push("");
         lines.push("## Issues");
@@ -559,7 +684,8 @@ program
     const apiKey = getApiKey(workspace);
     try {
       const result = await graphql(apiKey, QUERIES.users);
-      const data = (result.data as { users: { nodes: unknown[] } })?.users?.nodes;
+      const data = (result.data as { users: { nodes: unknown[] } })?.users
+        ?.nodes;
       console.log(formatOutput(data, format as OutputFormat));
     } catch (err) {
       printError(err);
@@ -580,10 +706,13 @@ program
       if (opts.team) {
         teamId = await resolveTeam(apiKey, opts.team);
       }
-      const query = teamId ? QUERIES.workflowStatesByTeam : QUERIES.workflowStatesAll;
+      const query = teamId
+        ? QUERIES.workflowStatesByTeam
+        : QUERIES.workflowStatesAll;
       const variables = teamId ? { teamId } : undefined;
       const result = await graphql(apiKey, query, variables);
-      const data = (result.data as { workflowStates: { nodes: unknown[] } })?.workflowStates?.nodes;
+      const data = (result.data as { workflowStates: { nodes: unknown[] } })
+        ?.workflowStates?.nodes;
       console.log(formatOutput(data, format as OutputFormat));
     } catch (err) {
       printError(err);
@@ -600,7 +729,8 @@ program
     const apiKey = getApiKey(workspace);
     try {
       const result = await graphql(apiKey, QUERIES.labels);
-      const data = (result.data as { issueLabels: { nodes: unknown[] } })?.issueLabels?.nodes;
+      const data = (result.data as { issueLabels: { nodes: unknown[] } })
+        ?.issueLabels?.nodes;
       console.log(formatOutput(data, format as OutputFormat));
     } catch (err) {
       printError(err);
@@ -624,7 +754,8 @@ program
       const query = teamId ? QUERIES.cyclesByTeam : QUERIES.cyclesAll;
       const variables = teamId ? { teamId } : undefined;
       const result = await graphql(apiKey, query, variables);
-      const data = (result.data as { cycles: { nodes: unknown[] } })?.cycles?.nodes;
+      const data = (result.data as { cycles: { nodes: unknown[] } })?.cycles
+        ?.nodes;
       console.log(formatOutput(data, format as OutputFormat));
     } catch (err) {
       printError(err);
@@ -649,18 +780,21 @@ program
       const result = await graphql(apiKey, QUERIES.inbox, {
         first: parseInt(opts.limit, 10),
       });
-      let data = (result.data as { notifications: { nodes: unknown[] } })?.notifications?.nodes;
-      
+      let data = (result.data as { notifications: { nodes: unknown[] } })
+        ?.notifications?.nodes;
+
       // Filter unread unless --all
       if (!opts.all && Array.isArray(data)) {
         data = data.filter((n: unknown) => !(n as { readAt?: string }).readAt);
       }
-      
+
       // Flatten for better display
       if (format !== "json" && Array.isArray(data)) {
         data = data.map((n: unknown) => {
           const notif = n as Record<string, unknown>;
-          const issue = notif.issue as { identifier?: string; title?: string } | undefined;
+          const issue = notif.issue as
+            | { identifier?: string; title?: string }
+            | undefined;
           const project = notif.project as { name?: string } | undefined;
           return {
             type: notif.type,
@@ -673,7 +807,7 @@ program
           };
         });
       }
-      
+
       console.log(formatOutput(data, format as OutputFormat));
     } catch (err) {
       printError(err);
@@ -690,7 +824,8 @@ program
     const apiKey = getApiKey(workspace);
     try {
       const result = await graphql(apiKey, QUERIES.inboxUnread);
-      const count = (result.data as { notificationsUnreadCount: number })?.notificationsUnreadCount;
+      const count = (result.data as { notificationsUnreadCount: number })
+        ?.notificationsUnreadCount;
       console.log(count);
     } catch (err) {
       printError(err);
@@ -711,12 +846,16 @@ program
         // Mark single notification read
         const mutation = `mutation { notificationUpdate(id: "${id}", input: { readAt: "${new Date().toISOString()}" }) { success } }`;
         const result = await graphql(apiKey, mutation);
-        const success = (result.data as { notificationUpdate: { success: boolean } })?.notificationUpdate?.success;
+        const success = (
+          result.data as { notificationUpdate: { success: boolean } }
+        )?.notificationUpdate?.success;
         console.log(success ? "Marked as read" : "Failed");
       } else {
         // Mark all read
         const result = await graphql(apiKey, MUTATIONS.markAllRead);
-        const success = (result.data as { notificationMarkReadAll: { success: boolean } })?.notificationMarkReadAll?.success;
+        const success = (
+          result.data as { notificationMarkReadAll: { success: boolean } }
+        )?.notificationMarkReadAll?.success;
         console.log(success ? "All marked as read" : "Failed");
       }
     } catch (err) {
@@ -739,7 +878,9 @@ program
       const until = new Date(Date.now() + hours * 60 * 60 * 1000).toISOString();
       const mutation = `mutation { notificationUpdate(id: "${id}", input: { snoozedUntilAt: "${until}" }) { success } }`;
       const result = await graphql(apiKey, mutation);
-      const success = (result.data as { notificationUpdate: { success: boolean } })?.notificationUpdate?.success;
+      const success = (
+        result.data as { notificationUpdate: { success: boolean } }
+      )?.notificationUpdate?.success;
       console.log(success ? `Snoozed for ${hours} hours` : "Failed");
     } catch (err) {
       printError(err);
@@ -756,8 +897,12 @@ program
     const { workspace } = cmd.optsWithGlobals();
     const apiKey = getApiKey(workspace);
     try {
-      const result = await graphql(apiKey, MUTATIONS.archiveNotification, { id });
-      const success = (result.data as { notificationArchive: { success: boolean } })?.notificationArchive?.success;
+      const result = await graphql(apiKey, MUTATIONS.archiveNotification, {
+        id,
+      });
+      const success = (
+        result.data as { notificationArchive: { success: boolean } }
+      )?.notificationArchive?.success;
       console.log(success ? "Archived" : "Failed");
     } catch (err) {
       printError(err);

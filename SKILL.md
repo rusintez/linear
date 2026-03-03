@@ -44,9 +44,12 @@ linear milestones MyProject  # Project milestones
 ### Read Issues
 
 ```bash
+linear my                    # Issues assigned to me (quick!)
 linear issues                # Recent issues across all teams
 linear issues -t MyTeam      # By team NAME
 linear issues -t ABC         # By team KEY
+linear issues -a me          # By assignee (me)
+linear issues -a "John Doe"  # By assignee (name)
 linear issues -n 20          # Limit results
 linear issue ABC-123         # Full issue details
 linear search "keyword"      # Search by title/description
@@ -71,13 +74,13 @@ linear comment ABC-40 "Comment in **markdown**"
 
 ### Accepted Input Formats
 
-| Field            | Accepts                                      |
-| ---------------- | -------------------------------------------- |
-| `-t, --team`     | Team name (`MyTeam`), key (`ABC`), or UUID   |
-| `-s, --state`    | State name (`Done`, `In Progress`), or UUID  |
-| `-a, --assignee` | `me`, user name (`John`), email, or UUID     |
-| `-l, --labels`   | Label names (`Bug,Feature`) or UUIDs         |
-| `<project>`      | Project name (`MyProject`) or UUID           |
+| Field            | Accepts                                     |
+| ---------------- | ------------------------------------------- |
+| `-t, --team`     | Team name (`MyTeam`), key (`ABC`), or UUID  |
+| `-s, --state`    | State name (`Done`, `In Progress`), or UUID |
+| `-a, --assignee` | `me`, user name (`John`), email, or UUID    |
+| `-l, --labels`   | Label names (`Bug,Feature`) or UUIDs        |
+| `<project>`      | Project name (`MyProject`) or UUID          |
 
 ### Error Messages
 

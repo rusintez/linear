@@ -12,13 +12,13 @@ export interface GraphQLResponse<T = unknown> {
 export async function graphql<T = unknown>(
   apiKey: string,
   query: string,
-  variables?: Record<string, unknown>
+  variables?: Record<string, unknown>,
 ): Promise<GraphQLResponse<T>> {
   const body: Record<string, unknown> = { query };
   if (variables && Object.keys(variables).length > 0) {
     body.variables = variables;
   }
-  
+
   const response = await fetch(LINEAR_ENDPOINT, {
     method: "POST",
     headers: {
@@ -53,6 +53,22 @@ export const QUERIES = {
   issuesByTeam: `query IssuesByTeam($teamId: ID!, $first: Int = 50) {
     issues(filter: { team: { id: { eq: $teamId } } }, first: $first, orderBy: updatedAt) {
       nodes { id identifier title state { name } assignee { name } priority createdAt }
+    }
+  }`,
+
+  // Issues assigned to user
+  issuesByAssignee: `query IssuesByAssignee($assigneeId: ID!, $first: Int = 50) {
+    issues(filter: { assignee: { id: { eq: $assigneeId } } }, first: $first, orderBy: updatedAt) {
+      nodes { id identifier title state { name } assignee { name } priority createdAt }
+    }
+  }`,
+
+  // Issues assigned to current user (viewer)
+  myIssues: `query MyIssues($first: Int = 50) {
+    viewer {
+      assignedIssues(first: $first, orderBy: updatedAt) {
+        nodes { id identifier title state { name } priority createdAt project { name } }
+      }
     }
   }`,
 
