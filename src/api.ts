@@ -207,6 +207,124 @@ export const QUERIES = {
   inboxUnread: `query InboxUnread {
     notificationsUnreadCount
   }`,
+
+  // Sync queries with pagination and full fields
+  syncOrganization: `query { organization { id name urlKey } }`,
+
+  syncIssues: `query SyncIssues($first: Int = 50, $after: String) {
+    issues(first: $first, after: $after, orderBy: updatedAt) {
+      pageInfo { hasNextPage endCursor }
+      nodes {
+        id identifier title description priority estimate
+        state { id name type }
+        assignee { id name }
+        team { id name key }
+        project { id name }
+        cycle { id number }
+        parent { id identifier }
+        labels { nodes { id name } }
+        createdAt updatedAt archivedAt completedAt
+        dueDate
+      }
+    }
+  }`,
+
+  syncProjects: `query SyncProjects($first: Int = 50, $after: String) {
+    projects(first: $first, after: $after) {
+      pageInfo { hasNextPage endCursor }
+      nodes {
+        id name description state progress url targetDate startDate
+        lead { id name }
+        teams { nodes { id name key } }
+        createdAt updatedAt archivedAt
+      }
+    }
+  }`,
+
+  syncTeams: `query SyncTeams($first: Int = 100, $after: String) {
+    teams(first: $first, after: $after) {
+      pageInfo { hasNextPage endCursor }
+      nodes {
+        id name key description color icon private
+        createdAt updatedAt archivedAt
+      }
+    }
+  }`,
+
+  syncUsers: `query SyncUsers($first: Int = 100, $after: String) {
+    users(first: $first, after: $after) {
+      pageInfo { hasNextPage endCursor }
+      nodes {
+        id name displayName email avatarUrl active admin guest
+        createdAt updatedAt archivedAt
+      }
+    }
+  }`,
+
+  syncLabels: `query SyncLabels($first: Int = 100, $after: String) {
+    issueLabels(first: $first, after: $after) {
+      pageInfo { hasNextPage endCursor }
+      nodes {
+        id name color description
+        team { id name }
+        createdAt updatedAt archivedAt
+      }
+    }
+  }`,
+
+  syncCycles: `query SyncCycles($first: Int = 100, $after: String) {
+    cycles(first: $first, after: $after) {
+      pageInfo { hasNextPage endCursor }
+      nodes {
+        id number name description startsAt endsAt progress
+        team { id name key }
+        createdAt updatedAt archivedAt
+      }
+    }
+  }`,
+
+  syncWorkflowStates: `query SyncWorkflowStates($first: Int = 100, $after: String) {
+    workflowStates(first: $first, after: $after) {
+      pageInfo { hasNextPage endCursor }
+      nodes {
+        id name type color description position
+        team { id name key }
+        createdAt updatedAt archivedAt
+      }
+    }
+  }`,
+
+  syncMilestones: `query SyncMilestones($first: Int = 100, $after: String) {
+    projectMilestones(first: $first, after: $after) {
+      pageInfo { hasNextPage endCursor }
+      nodes {
+        id name description targetDate sortOrder
+        project { id name }
+        createdAt updatedAt archivedAt
+      }
+    }
+  }`,
+
+  syncNotifications: `query SyncNotifications($first: Int = 50, $after: String) {
+    notifications(first: $first, after: $after, orderBy: createdAt) {
+      pageInfo { hasNextPage endCursor }
+      nodes {
+        id type createdAt readAt snoozedUntilAt archivedAt
+        actor { id name }
+        ... on IssueNotification {
+          issue { id identifier title }
+          comment { id body }
+        }
+        ... on ProjectNotification {
+          project { id name }
+          projectUpdate { id body }
+        }
+        ... on OauthClientApprovalNotification {
+          oauthClientApproval { id }
+        }
+      }
+    }
+  }`,
 };
 
 // Common mutations

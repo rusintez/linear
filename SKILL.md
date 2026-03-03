@@ -130,8 +130,61 @@ linear inbox-archive <id>     # Archive notification
 | 3     | Medium      |
 | 4     | Low         |
 
+## Sync (Local Data Cache)
+
+Sync Linear data to local JSON files for offline access, searching, and AI tooling.
+
+```bash
+linear sync                  # Incremental sync all workspaces (default)
+linear sync --full           # Full sync (re-fetch everything, detect deletions)
+linear sync -w work          # Sync specific workspace only
+linear sync -c issues,projects  # Sync specific collections only
+```
+
+### Sync Status
+
+```bash
+linear sync-status           # Show sync status for all workspaces
+linear sync-status runcible  # Status for specific workspace
+linear sync-reset runcible   # Reset sync state (next sync = full)
+```
+
+### Data Location
+
+```
+~/.local/share/linear/{workspace}/
+├── organization.json
+├── teams/{id}.json
+├── users/{id}.json
+├── issues/{id}.json
+├── projects/{id}.json
+├── milestones/{id}.json
+├── cycles/{id}.json
+├── workflowStates/{id}.json
+├── labels/{id}.json
+├── notifications/{id}.json
+└── .sync-state.json
+```
+
+### Collections
+
+| Collection | Description |
+|------------|-------------|
+| teams | Teams with name, key, color |
+| users | Workspace members |
+| issues | All issues with state, assignee, labels |
+| projects | Projects with progress, dates |
+| milestones | Project milestones |
+| cycles | Sprints/iterations |
+| workflowStates | Todo, In Progress, Done, etc. |
+| labels | Issue labels |
+| notifications | Inbox notifications |
+
+See `schema.md` for full field documentation.
+
 ## Notes
 
 - Config: `~/.config/linear-cli/config.json`
+- Sync data: `~/.local/share/linear/`
 - Markdown supported in descriptions and comments
 - Issue IDs: UUID or identifier (`ABC-123`)

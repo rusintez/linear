@@ -109,6 +109,41 @@ linear -w client projects      # Use 'client' workspace
 - **Minimal** (`-f minimal`): Tab-separated, one item per line
 - Errors go to stderr with exit code 1
 
+## Sync (Local Data Cache)
+
+Sync all Linear data to local JSON files for offline access, searching, and integration with other tools.
+
+```bash
+linear sync                     # Incremental sync all workspaces
+linear sync --full              # Full sync (re-fetch all, detect deletions)
+linear sync -w work             # Sync specific workspace only
+linear sync -c issues,projects  # Sync specific collections only
+```
+
+Data is stored at `~/.local/share/linear/{workspace}/{collection}/{id}.json`
+
+### Synced Collections
+
+- `teams` - Teams with name, key, color
+- `users` - Workspace members  
+- `issues` - All issues with full details
+- `projects` - Projects with progress tracking
+- `milestones` - Project milestones
+- `cycles` - Sprints/iterations
+- `workflowStates` - Workflow states (Todo, Done, etc.)
+- `labels` - Issue labels
+- `notifications` - Inbox notifications
+
+### Sync Management
+
+```bash
+linear sync-status              # Show sync status for all workspaces
+linear sync-status myworkspace  # Status for specific workspace
+linear sync-reset myworkspace   # Reset state (next sync = full)
+```
+
+See `schema.md` for full field documentation.
+
 ## Config Location
 
 `~/.config/linear-cli/config.json`

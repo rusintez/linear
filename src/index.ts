@@ -18,6 +18,14 @@ import {
   resolveLabels,
   resolveProject,
 } from "./resolve.js";
+import {
+  sync,
+  getSyncStatus,
+  resetSyncState,
+  listSyncedWorkspaces,
+  COLLECTIONS,
+  type Collection,
+} from "./sync.js";
 
 const program = new Command()
   .name("linear")
@@ -908,6 +916,161 @@ program
       printError(err);
       process.exit(1);
     }
+  });
+
+// ============================================================================
+// SYNC COMMANDS
+// ============================================================================
+
+program
+  .command("sync")
+  .description("sync Linear data to local JSON files (~/.local/share/linear/)")
+  .option("--full", "full sync (re-fetch everything, remove deleted items)")
+  .option(
+    "-c, --collections <collections>",
+    `collections to sync (comma-separated: ${COLLECTIONS.join(",")})`,
+  )
+  .action(async (opts, cmd) => {
+    const { workspace } = cmd.optsWithGlobals();
+
+    // Parse collections
+    let collections: Collection[] | undefined;
+    if (opts.collections) {
+      collections = opts.collections.split(",").map((c: string) => c.trim()) as Collection[];
+      const invalid = collections.filter((c) => !COLLECTIONS.includes(c));
+      if (invalid.length) {
+        console.error(`Invalid collections: ${invalid.join(", ")}`);
+        console.error(`Valid collections: ${COLLECTIONS.join(", ")}`);
+        process.exit(1);
+      }
+    }
+
+    // Get workspaces to sync
+    const workspaces = workspace
+      ? [getWorkspace(workspace)].filter(Boolean) as { name: string; apiKey: string }[]
+      : listWorkspaces();
+
+    if (workspaces.length === 0) {
+      console.error("No workspaces configured. Run: linear config add <name> <api-key>");
+      process.exit(1);
+    }
+
+    const startTime = Date.now();
+
+    // Track progress per workspace
+    const progress: Record<string, { collection: string; fetched: number }> = {};
+    const renderProgress = () => {
+      const lines = Object.entries(progress)
+        .map(([ws, p]) => `  ${ws}: ${p.collection} (${p.fetched})`)
+        .join("\n");
+      process.stdout.write(`\r\x1b[K${lines}`);
+    };
+
+    console.log(`Syncing ${workspaces.length} workspace(s) concurrently...\n`);
+
+    // Sync all workspaces concurrently
+    const results = await Promise.allSettled(
+      workspaces.map(async (ws) => {
+        progress[ws.name] = { collection: "starting", fetched: 0 };
+
+        const result = await sync(ws.apiKey, {
+          full: opts.full,
+          collections,
+          onProgress: (p) => {
+            progress[ws.name] = { collection: p.collection, fetched: p.fetched };
+            renderProgress();
+          },
+        });
+
+        progress[ws.name] = { collection: "done", fetched: 0 };
+        return {
+          workspace: result.workspaceName,
+          synced: result.synced,
+          removed: result.removed,
+        };
+      }),
+    );
+
+    const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
+    console.log(`\n\nSync complete in ${elapsed}s\n`);
+
+    // Summary
+    console.log("Summary:");
+    for (let i = 0; i < results.length; i++) {
+      const result = results[i];
+      const wsName = workspaces[i].name;
+      if (result.status === "fulfilled") {
+        const totalSynced = Object.values(result.value.synced).reduce((a, b) => a + b, 0);
+        const totalRemoved = Object.values(result.value.removed).reduce((a, b) => a + b, 0);
+        const removedStr = totalRemoved > 0 ? `, ${totalRemoved} removed` : "";
+        console.log(`  ${result.value.workspace}: ${totalSynced} items${removedStr}`);
+      } else {
+        console.error(`  ${wsName}: ERROR - ${result.reason?.message || result.reason}`);
+      }
+    }
+  });
+
+program
+  .command("sync-status")
+  .description("show sync status for a workspace")
+  .argument("[workspace]", "workspace name (uses default if not specified)")
+  .action(async (workspaceArg, _, cmd) => {
+    // Get workspace name from config or argument
+    let workspaceName = workspaceArg;
+    if (!workspaceName) {
+      const { workspace } = cmd.optsWithGlobals();
+      const ws = getWorkspace(workspace);
+      if (ws) {
+        // Need to fetch org to get urlKey
+        const apiKey = ws.apiKey;
+        try {
+          const result = await graphql(apiKey, QUERIES.syncOrganization);
+          workspaceName = (
+            result.data as { organization: { urlKey: string } }
+          )?.organization?.urlKey;
+        } catch {
+          // Fall back to workspace config name
+          workspaceName = ws.name;
+        }
+      }
+    }
+
+    if (!workspaceName) {
+      // List all synced workspaces
+      const workspaces = listSyncedWorkspaces();
+      if (workspaces.length === 0) {
+        console.log("No synced workspaces found.");
+        console.log("Run: linear sync");
+        return;
+      }
+      console.log("Synced workspaces:");
+      for (const ws of workspaces) {
+        console.log(`  ${ws}`);
+      }
+      return;
+    }
+
+    const status = getSyncStatus(workspaceName);
+    console.log(`Workspace: ${workspaceName}`);
+    console.log(`Data directory: ${status.dataDir}`);
+    console.log(
+      `Last sync: ${status.lastSyncAt ? new Date(status.lastSyncAt).toLocaleString() : "never"}`,
+    );
+    console.log("\nCollections:");
+    for (const [name, info] of Object.entries(status.collections)) {
+      const resumeInfo = info.resumeCursor ? " (interrupted)" : "";
+      console.log(`  ${name}: ${info.count} items${resumeInfo}`);
+    }
+  });
+
+program
+  .command("sync-reset")
+  .description("reset sync state (next sync will be full)")
+  .argument("<workspace>", "workspace name")
+  .action((workspaceName) => {
+    resetSyncState(workspaceName);
+    console.log(`Sync state reset for "${workspaceName}".`);
+    console.log("Next sync will fetch all data from scratch.");
   });
 
 program.parse();
