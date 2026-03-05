@@ -374,10 +374,21 @@ program
     const apiKey = getApiKey(workspace);
 
     try {
+      // First fetch the issue to get its team ID (needed for state resolution)
+      let teamId: string | undefined;
+      if (opts.state) {
+        const issueResult = await graphql(apiKey, `
+          query($id: String!) {
+            issue(id: $id) { team { id } }
+          }
+        `, { id });
+        teamId = (issueResult.data as { issue?: { team: { id: string } } })?.issue?.team?.id;
+      }
+
       const input: Record<string, unknown> = {};
       if (opts.title) input.title = opts.title;
       if (opts.description) input.description = opts.description;
-      if (opts.state) input.stateId = await resolveState(apiKey, opts.state);
+      if (opts.state) input.stateId = await resolveState(apiKey, opts.state, teamId);
       if (opts.assignee)
         input.assigneeId = await resolveUser(apiKey, opts.assignee);
       if (opts.priority) input.priority = parseInt(opts.priority, 10);
