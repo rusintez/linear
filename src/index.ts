@@ -783,6 +783,124 @@ program
   });
 
 // ============================================================================
+// DOCUMENTS (pages)
+// ============================================================================
+
+program
+  .command("docs")
+  .description("list documents (pages)")
+  .option("-n, --limit <number>", "max documents to return", "50")
+  .action(async (opts, cmd) => {
+    const { workspace, format } = cmd.optsWithGlobals();
+    const apiKey = getApiKey(workspace);
+    try {
+      const result = await graphql(apiKey, QUERIES.documents, {
+        first: parseInt(opts.limit, 10),
+      });
+      const data = (result.data as { documents: { nodes: unknown[] } })
+        ?.documents?.nodes;
+      console.log(formatOutput(data, format as OutputFormat));
+    } catch (err) {
+      printError(err);
+      process.exit(1);
+    }
+  });
+
+program
+  .command("doc")
+  .description("get document by ID, slugId, URL, or title search")
+  .argument("<id>", "document UUID, slugId, URL, or title substring")
+  .action(async (idOrQuery, _, cmd) => {
+    const { workspace, format } = cmd.optsWithGlobals();
+    const apiKey = getApiKey(workspace);
+    try {
+      let documentId = idOrQuery;
+
+      // Extract slugId from Linear URL
+      const urlMatch = idOrQuery.match(
+        /linear\.app\/[^/]+\/document\/(?:.*-)?([a-f0-9]+)$/,
+      );
+      if (urlMatch) {
+        documentId = urlMatch[1];
+      }
+
+      // If not a UUID, resolve by slugId or title search
+      if (!documentId.match(/^[0-9a-f-]{36}$/i)) {
+        const listResult = await graphql(
+          apiKey,
+          QUERIES.searchDocuments,
+          { first: 250 },
+        );
+        const docs = (
+          listResult.data as {
+            documents: {
+              nodes: Array<{ id: string; title: string; slugId: string }>;
+            };
+          }
+        )?.documents?.nodes;
+
+        // Try slugId match first
+        let found = docs?.find(
+          (d) => d.slugId?.toLowerCase() === documentId.toLowerCase(),
+        );
+
+        // Fall back to title substring match
+        if (!found) {
+          found = docs?.find((d) =>
+            d.title.toLowerCase().includes(documentId.toLowerCase()),
+          );
+        }
+
+        if (!found) {
+          console.error(`Document "${idOrQuery}" not found`);
+          process.exit(1);
+        }
+        documentId = found.id;
+      }
+
+      const result = await graphql(apiKey, QUERIES.document, {
+        id: documentId,
+      });
+      const doc = (result.data as { document: Record<string, unknown> })
+        ?.document;
+
+      if (format === "json") {
+        console.log(formatOutput(doc, format as OutputFormat));
+        return;
+      }
+
+      const lines: string[] = [];
+      lines.push(`# ${doc.title}`);
+      lines.push("");
+
+      const creator = doc.creator as { name?: string } | undefined;
+      const updatedBy = doc.updatedBy as { name?: string } | undefined;
+      const project = doc.project as { name?: string } | undefined;
+
+      if (project?.name) lines.push(`**Project:** ${project.name}`);
+      if (creator?.name) lines.push(`**Creator:** ${creator.name}`);
+      if (updatedBy?.name) lines.push(`**Last updated by:** ${updatedBy.name}`);
+      if (doc.updatedAt)
+        lines.push(
+          `**Updated:** ${new Date(doc.updatedAt as string).toLocaleString()}`,
+        );
+      lines.push(`**Slug:** ${doc.slugId}`);
+
+      if (doc.content) {
+        lines.push("");
+        lines.push("---");
+        lines.push("");
+        lines.push(String(doc.content));
+      }
+
+      console.log(lines.join("\n"));
+    } catch (err) {
+      printError(err);
+      process.exit(1);
+    }
+  });
+
+// ============================================================================
 // INBOX / NOTIFICATIONS
 // ============================================================================
 

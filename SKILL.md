@@ -108,6 +108,19 @@ linear gql 'mutation { issueArchive(id: "ABC-123") { success } }'
 | `-f json`    | JSON          | Parsing, scripting     |
 | `-f minimal` | Tab-separated | Simple line processing |
 
+## Documents (Pages)
+
+```bash
+linear docs                  # List all documents
+linear docs -n 10            # Limit results
+linear doc <slugId>          # By slug ID (from URL)
+linear doc <uuid>            # By UUID
+linear doc "search term"     # By title substring
+linear doc "https://linear.app/org/document/title-4a64dbbffb28"  # From URL
+```
+
+The `doc` command accepts UUIDs, slug IDs, full Linear URLs, or title substrings. Output includes full markdown content.
+
 ## Inbox (Notifications)
 
 ```bash
@@ -162,6 +175,7 @@ linear sync-reset runcible   # Reset sync state (next sync = full)
 ├── cycles/{id}.json
 ├── workflowStates/{id}.json
 ├── labels/{id}.json
+├── documents/{id}.json
 ├── notifications/{id}.json
 └── .sync-state.json
 ```
@@ -178,6 +192,7 @@ linear sync-reset runcible   # Reset sync state (next sync = full)
 | cycles | Sprints/iterations |
 | workflowStates | Todo, In Progress, Done, etc. |
 | labels | Issue labels |
+| documents | Documents/pages with full content |
 | notifications | Inbox notifications |
 
 See `schema.md` for full field documentation.

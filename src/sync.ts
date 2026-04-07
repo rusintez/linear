@@ -39,6 +39,7 @@ const COLLECTIONS = [
   "cycles",
   "projects",
   "milestones",
+  "documents",
   "issues",
   "notifications",
 ] as const;
@@ -55,6 +56,7 @@ const SYNC_QUERIES: Record<Collection, string> = {
   cycles: QUERIES.syncCycles,
   workflowStates: QUERIES.syncWorkflowStates,
   milestones: QUERIES.syncMilestones,
+  documents: QUERIES.syncDocuments,
   notifications: QUERIES.syncNotifications,
 };
 
@@ -68,6 +70,7 @@ const RESPONSE_FIELDS: Record<Collection, string> = {
   cycles: "cycles",
   workflowStates: "workflowStates",
   milestones: "projectMilestones",
+  documents: "documents",
   notifications: "notifications",
 };
 

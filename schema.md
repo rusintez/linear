@@ -186,6 +186,42 @@ Project milestones mark significant checkpoints within a project.
 
 ---
 
+## Documents
+
+**Directory:** `documents/`
+
+Documents (pages) are rich-text content pages in Linear, used for specs, PRDs, and general documentation.
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `id` | string | Unique identifier (UUID) |
+| `title` | string | Document title |
+| `slugId` | string | Short hex slug used in URLs (e.g., `4a64dbbffb28`) |
+| `icon` | string? | Icon name or emoji |
+| `color` | string? | Hex color code |
+| `content` | string | Full markdown body |
+| `creator` | object? | User who created the document |
+| `creator.id` | string | User UUID |
+| `creator.name` | string | User name |
+| `updatedBy` | object? | User who last edited |
+| `updatedBy.id` | string | User UUID |
+| `updatedBy.name` | string | User name |
+| `project` | object? | Associated project (if any) |
+| `project.id` | string | Project UUID |
+| `project.name` | string | Project name |
+| `createdAt` | datetime | Creation time |
+| `updatedAt` | datetime | Last update |
+| `archivedAt` | datetime? | When archived |
+
+### URL Format
+
+Linear document URLs follow the pattern:
+`https://linear.app/{org}/document/{title-slug}-{slugId}`
+
+The `slugId` field can be used to look up a document from its URL.
+
+---
+
 ## Cycles
 
 **Directory:** `cycles/`

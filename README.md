@@ -86,6 +86,17 @@ linear update-issue ABC-123 --title "New title" -a <userId>
 linear comment ABC-123 "This is a comment"
 ```
 
+### Documents (Pages)
+
+```bash
+linear docs                     # List all documents
+linear docs -n 10               # Limit results
+linear doc <slugId>             # Get document by slug ID
+linear doc <uuid>               # Get document by UUID
+linear doc "search term"        # Find document by title substring
+linear doc "https://linear.app/org/document/title-slug-4a64dbbffb28"  # From URL
+```
+
 ### Output Formats
 
 ```bash
@@ -132,6 +143,7 @@ Data is stored at `~/.local/share/linear/{workspace}/{collection}/{id}.json`
 - `cycles` - Sprints/iterations
 - `workflowStates` - Workflow states (Todo, Done, etc.)
 - `labels` - Issue labels
+- `documents` - Documents/pages with full content
 - `notifications` - Inbox notifications
 
 ### Sync Management

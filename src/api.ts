@@ -305,6 +305,42 @@ export const QUERIES = {
     }
   }`,
 
+  // Documents
+  documents: `query Documents($first: Int = 50) {
+    documents(first: $first, orderBy: updatedAt) {
+      nodes { id title slugId icon color updatedAt creator { name } project { name } }
+    }
+  }`,
+
+  document: `query Document($id: String!) {
+    document(id: $id) {
+      id title slugId icon color content
+      creator { id name }
+      updatedBy { id name }
+      project { id name }
+      createdAt updatedAt
+    }
+  }`,
+
+  searchDocuments: `query SearchDocuments($first: Int = 50) {
+    documents(first: $first, orderBy: updatedAt) {
+      nodes { id title slugId icon color updatedAt creator { name } project { name } }
+    }
+  }`,
+
+  syncDocuments: `query SyncDocuments($first: Int = 50, $after: String) {
+    documents(first: $first, after: $after, orderBy: updatedAt) {
+      pageInfo { hasNextPage endCursor }
+      nodes {
+        id title slugId icon color content
+        creator { id name }
+        updatedBy { id name }
+        project { id name }
+        createdAt updatedAt archivedAt
+      }
+    }
+  }`,
+
   syncNotifications: `query SyncNotifications($first: Int = 50, $after: String) {
     notifications(first: $first, after: $after, orderBy: createdAt) {
       pageInfo { hasNextPage endCursor }
