@@ -1,6 +1,7 @@
 #!/usr/bin/env npx tsx
 import { Command, Option } from "@commander-js/extra-typings";
-import { readFileSync } from "node:fs";
+import { readFileSync, statSync } from "node:fs";
+import { basename, extname } from "node:path";
 import {
   addWorkspace,
   getDefaultWorkspaceName,
@@ -265,11 +266,13 @@ program
   .command("issue")
   .description("get issue by ID (e.g., ABC-123)")
   .argument("<id>", "issue identifier")
-  .action(async (id, _, cmd) => {
+  .option("--activity", "include comments (threaded) and history (state/assignee/priority changes)")
+  .action(async (id, opts, cmd) => {
     const { workspace, format } = cmd.optsWithGlobals();
     const apiKey = getApiKey(workspace);
     try {
-      const result = await graphql(apiKey, QUERIES.issue, { id });
+      const query = opts.activity ? QUERIES.issueWithActivity : QUERIES.issue;
+      const result = await graphql(apiKey, query, { id });
       const data = (result.data as { issue: unknown })?.issue;
       console.log(formatOutput(data, format as OutputFormat));
     } catch (err) {
@@ -429,6 +432,145 @@ program
       const data = (result.data as { commentCreate: { comment: unknown } })
         ?.commentCreate?.comment;
       console.log(formatOutput(data, format as OutputFormat));
+    } catch (err) {
+      printError(err);
+      process.exit(1);
+    }
+  });
+
+// --- Attach URL ---
+program
+  .command("attach")
+  .description("attach a URL to an issue")
+  .argument("<issue-id>", "issue identifier (e.g., ABC-123)")
+  .argument("<url>", "URL to attach")
+  .argument("[title]", "optional title for the attachment")
+  .option("--title <title>", "title for the attachment")
+  .action(async (issueId, url, positionalTitle, opts, cmd) => {
+    const { workspace, format } = cmd.optsWithGlobals();
+    const apiKey = getApiKey(workspace);
+    const title = opts.title || positionalTitle;
+    try {
+      const variables: Record<string, unknown> = { issueId, url };
+      if (title) variables.title = title;
+      const result = await graphql(apiKey, MUTATIONS.attachmentLinkURL, variables);
+      const data = (result.data as { attachmentLinkURL: { success: boolean; attachment: unknown } })
+        ?.attachmentLinkURL;
+      if (!data?.success) {
+        console.error("Failed to attach URL");
+        process.exit(1);
+      }
+      console.log(formatOutput(data.attachment, format as OutputFormat));
+    } catch (err) {
+      printError(err);
+      process.exit(1);
+    }
+  });
+
+// --- Upload file ---
+const CONTENT_TYPES: Record<string, string> = {
+  ".pdf": "application/pdf",
+  ".png": "image/png",
+  ".jpg": "image/jpeg",
+  ".jpeg": "image/jpeg",
+  ".gif": "image/gif",
+  ".webp": "image/webp",
+  ".svg": "image/svg+xml",
+  ".txt": "text/plain",
+  ".md": "text/markdown",
+  ".csv": "text/csv",
+  ".json": "application/json",
+  ".zip": "application/zip",
+  ".doc": "application/msword",
+  ".docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  ".xls": "application/vnd.ms-excel",
+  ".xlsx": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+};
+
+program
+  .command("upload")
+  .description("upload a file and attach it to an issue")
+  .argument("<issue-id>", "issue identifier (e.g., ABC-123)")
+  .argument("<file-path>", "path to the file to upload")
+  .option("--title <title>", "title for the attachment (defaults to filename)")
+  .action(async (issueId, filePath, opts, cmd) => {
+    const { workspace, format } = cmd.optsWithGlobals();
+    const apiKey = getApiKey(workspace);
+    try {
+      // Read file
+      const fileBuffer = readFileSync(filePath);
+      const filename = basename(filePath);
+      const ext = extname(filePath).toLowerCase();
+      const contentType = CONTENT_TYPES[ext] || "application/octet-stream";
+      const size = statSync(filePath).size;
+      const title = opts.title || filename;
+
+      // Step 1: Get pre-signed upload URL
+      const uploadResult = await graphql(apiKey, MUTATIONS.fileUpload, {
+        filename,
+        contentType,
+        size,
+      });
+      const uploadFile = (
+        uploadResult.data as {
+          fileUpload: {
+            uploadFile: {
+              filename: string;
+              uploadUrl: string;
+              assetUrl: string;
+              headers: Array<{ key: string; value: string }>;
+            };
+          };
+        }
+      )?.fileUpload?.uploadFile;
+
+      if (!uploadFile) {
+        console.error("Failed to get upload URL");
+        if (uploadResult.errors) {
+          for (const e of uploadResult.errors) console.error(`  ${e.message}`);
+        }
+        process.exit(1);
+      }
+
+      // Step 2: PUT the file to the upload URL
+      const headers: Record<string, string> = {
+        "Content-Type": contentType,
+      };
+      for (const h of uploadFile.headers) {
+        headers[h.key] = h.value;
+      }
+
+      const putResponse = await fetch(uploadFile.uploadUrl, {
+        method: "PUT",
+        headers,
+        body: fileBuffer,
+      });
+
+      if (!putResponse.ok) {
+        const text = await putResponse.text();
+        console.error(`Upload failed: HTTP ${putResponse.status}: ${text}`);
+        process.exit(1);
+      }
+
+      // Step 3: Create attachment linking assetUrl to the issue
+      const attachResult = await graphql(apiKey, MUTATIONS.attachmentCreate, {
+        issueId,
+        url: uploadFile.assetUrl,
+        title,
+      });
+      const data = (
+        attachResult.data as { attachmentCreate: { success: boolean; attachment: unknown } }
+      )?.attachmentCreate;
+
+      if (!data?.success) {
+        console.error("Failed to create attachment");
+        if (attachResult.errors) {
+          for (const e of attachResult.errors) console.error(`  ${e.message}`);
+        }
+        process.exit(1);
+      }
+
+      console.log(formatOutput(data.attachment, format as OutputFormat));
     } catch (err) {
       printError(err);
       process.exit(1);

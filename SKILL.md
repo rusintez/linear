@@ -52,6 +52,7 @@ linear issues -a me          # By assignee (me)
 linear issues -a "John Doe"  # By assignee (name)
 linear issues -n 20          # Limit results
 linear issue ABC-123         # Full issue details
+linear issue ABC-123 --activity  # Include comments (threaded) + history (state/assignee/priority changes)
 linear search "keyword"      # Search by title/description
 ```
 

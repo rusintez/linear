@@ -83,6 +83,46 @@ export const QUERIES = {
     }
   }`,
 
+  // Same as \`issue\` plus comments (threaded, oldest-first) and activity history.
+  // Use when you need the full conversation / decision trail, not just metadata.
+  issueWithActivity: `query IssueWithActivity($id: String!) {
+    issue(id: $id) {
+      id identifier title description url
+      state { id name }
+      assignee { id name }
+      priority estimate
+      labels { nodes { id name } }
+      createdAt updatedAt
+      comments(first: 100, orderBy: createdAt) {
+        nodes {
+          id body createdAt editedAt
+          user { id name email }
+          parent { id }
+          children(first: 50, orderBy: createdAt) {
+            nodes {
+              id body createdAt editedAt
+              user { id name email }
+            }
+          }
+        }
+      }
+      history(first: 100) {
+        nodes {
+          id createdAt
+          actor { name }
+          fromState { name }
+          toState { name }
+          fromAssignee { name }
+          toAssignee { name }
+          fromPriority
+          toPriority
+          addedLabelIds
+          removedLabelIds
+        }
+      }
+    }
+  }`,
+
   projects: `query { projects { nodes { id name state } } }`,
 
   project: `query Project($id: String!) {
@@ -414,6 +454,31 @@ export const MUTATIONS = {
   archiveNotification: `mutation Archive($id: String!) {
     notificationArchive(id: $id) {
       success
+    }
+  }`,
+
+  attachmentLinkURL: `mutation AttachmentLinkURL($issueId: String!, $url: String!, $title: String) {
+    attachmentLinkURL(issueId: $issueId, url: $url, title: $title) {
+      success
+      attachment { id title url }
+    }
+  }`,
+
+  fileUpload: `mutation FileUpload($filename: String!, $contentType: String!, $size: Int!) {
+    fileUpload(filename: $filename, contentType: $contentType, size: $size) {
+      uploadFile {
+        filename
+        uploadUrl
+        assetUrl
+        headers { key value }
+      }
+    }
+  }`,
+
+  attachmentCreate: `mutation AttachmentCreate($issueId: String!, $url: String!, $title: String!) {
+    attachmentCreate(input: { issueId: $issueId, url: $url, title: $title }) {
+      success
+      attachment { id title url }
     }
   }`,
 };
