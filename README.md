@@ -77,6 +77,7 @@ linear issues                   # List issues (most recent)
 linear issues -t <teamId>       # Issues for team
 linear issues -n 100            # Limit results
 linear issue ABC-123            # Get single issue (full detail)
+linear issue ABC-123 --activity  # Include comments (threaded) + history
 linear search "bug login"       # Search issues by title/description
 
 # Create/Update
@@ -84,6 +85,12 @@ linear create-issue -t <teamId> --title "Bug: Login broken" -d "Details here" -p
 linear update-issue ABC-123 -s <stateId>
 linear update-issue ABC-123 --title "New title" -a <userId>
 linear comment ABC-123 "This is a comment"
+
+# Attachments
+linear attach ABC-123 https://example.com/report.pdf
+linear attach ABC-123 https://example.com "My Report"
+linear upload ABC-123 ./screenshot.png
+linear upload ABC-123 ./log.txt --title "Error logs"
 ```
 
 ### Documents (Pages)

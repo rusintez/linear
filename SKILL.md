@@ -71,6 +71,12 @@ linear update-issue ABC-123 -a "John Doe"
 
 # Comment
 linear comment ABC-40 "Comment in **markdown**"
+
+# Attachments
+linear attach ABC-123 https://example.com/report.pdf     # Attach URL to issue
+linear attach ABC-123 https://example.com "My Report"    # With custom title
+linear upload ABC-123 ./screenshot.png                   # Upload file and attach
+linear upload ABC-123 ./log.txt --title "Error logs"     # With custom title
 ```
 
 ### Accepted Input Formats
